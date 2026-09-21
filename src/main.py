@@ -1,75 +1,81 @@
-import ollama
 import json
-import sqlite3
+import ollama
+from database import create_table, save_session, get_previous_sessions
 
-question=input("What do you want to study? Enter the question: ")
 
+# Create database table
+create_table()
+
+# Get student's question
+question = input("What do you want to study? Enter the question: ")
+
+# Load study prompt
 with open("./prompts/study_prompt.txt", "r") as prompt_file:
-    prompt=prompt_file.read()
+    prompt = prompt_file.read()
 
-response=ollama.chat(
+# Send question to Gemma
+response = ollama.chat(
     model="gemma3:4b",
     messages=[
         {
-            "role":"user",
-            "content":f"""{prompt}
-            Question: {question}"""
+            "role": "user",
+            "content": f"""{prompt}
+Question: {question}"""
         }
     ]
 )
-answer=response["message"]["content"]
+
+# Get model response
+answer = response["message"]["content"]
+
+# Remove Markdown code fences if returned by the model
 answer = answer.replace("```json", "").replace("```", "").strip()
 
-answer_data=json.loads(answer)
 
-# print("\n" + "=" * 60)
-# print("                 AI STUDY ASSISTANT")
-# print("=" * 60)
+# Convert JSON response into Python dictionary
+answer_data = json.loads(answer)
 
-# print(f"\nQuestion:")
-# print(answer_data["student_question"])
+# Display AI response
+print("\n" + "=" * 60)
+print("                 AI STUDY ASSISTANT")
+print("=" * 60)
 
-# print(f"\nTopic:")
-# print(answer_data["topic"])
+print("\nQuestion:")
+print(answer_data["student_question"])
 
-# print(f"\nExplanation:")
-# print(answer_data["explanation"])
+print("\nTopic:")
+print(answer_data["topic"])
 
-# print(f"\nExample:")
-# print(answer_data["example"])
+print("\nExplanation:")
+print(answer_data["explanation"])
 
-# print(f"\nRelated Concepts:")
-# for i, concept in enumerate(answer_data["related_concepts"], start=1):
-#     print(f"  {i}. {concept}")
+print("\nExample:")
+print(answer_data["example"])
 
-# print(f"\nPractice Question:")
-# print(answer_data["practice_question"])
+print("\nRelated Concepts:")
 
-# print("\n" + "=" * 60)
+for i, concept in enumerate(answer_data["related_concepts"], start=1):
+    print(f"  {i}. {concept}")
 
-connection = sqlite3.connect("./database/study_assistant.db")
-cursor = connection.cursor()
+print("\nPractice Question:")
+print(answer_data["practice_question"])
 
-cursor.execute("""
-INSERT INTO study_sessions (
-    student_question,
-    topic,
-    explanation,
-    example,
-    related_concepts,
-    practice_question
-)
-VALUES (?, ?, ?, ?, ?, ?)
-""", (
-    answer_data["student_question"],
-    answer_data["topic"],
-    answer_data["explanation"],
-    answer_data["example"],
-    ", ".join(answer_data["related_concepts"]),
-    answer_data["practice_question"]
-))
+print("\n" + "=" * 60)
 
-connection.commit()
-connection.close()
+# Save study session
+save_session(answer_data)
 
 print("\nStudy session saved successfully!")
+
+# Display previous study sessions
+sessions = get_previous_sessions()
+
+print("\nPrevious Study Sessions")
+print("=" * 60)
+
+for session in sessions:
+    print(f"\n{session[0]}. {session[2]}")
+    print(f"   Question: {session[1]}")
+    print(f"   Date: {session[3]}")
+
+print()
